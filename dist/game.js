@@ -2919,34 +2919,44 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
   loadPedit("right-wall", "sprites/right-wall.pedit");
   loadPedit("space-ship", "sprites/space-ship.pedit");
   var MOVE_SPEED = 200;
+  var TIME_LEFT = 100;
+  var INVADER_SPEED = 50;
+  var CURRENT_SPEED = INVADER_SPEED;
+  var LEVEL_DOWN = 100;
+  BULLET_SPEED = 400;
+  var LEVEL1 = [
+    "!^^^^^^^^^^^^    &",
+    "!^^^^^^^^^^^^    &",
+    "!^^^^^^^^^^^^    &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &",
+    "!                &"
+  ];
+  var TOTAL_INVADERS = LEVEL1.reduce((r, l) => {
+    invaders = l.split("").filter((i) => i == "^");
+    return r += invaders.length;
+  }, 0);
   layer(["obj", "ui"], "obj");
-  addLevel([
-    "!^^^^^^^^^^    &",
-    "!^^^^^^^^^^    &",
-    "!^^^^^^^^^^    &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &",
-    "!              &"
-  ], {
+  addLevel(LEVEL1, {
     width: 30,
     height: 22,
     "^": () => [sprite("space-invader"), scale(0.8), area(), "space-invader"],
@@ -2971,6 +2981,32 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
   keyDown("left", () => {
     player.move(-MOVE_SPEED, 0);
   });
+  function spawnBullet(p) {
+    add([
+      rect(6, 10),
+      pos(p.x - 3, p.y - 25),
+      color(127, 0, 255),
+      area(),
+      "bullet"
+    ]);
+  }
+  __name(spawnBullet, "spawnBullet");
+  keyPress("space", () => {
+    spawnBullet(player.pos);
+  });
+  onUpdate("bullet", (b2) => {
+    b2.move(0, -BULLET_SPEED);
+    if (b2.pos.y < 0) {
+      destroy(b2);
+    }
+  });
+  collides("bullet", "space-invader", (s, b2) => {
+    shake(4);
+    s.destroy();
+    b2.destroy();
+    score.value++;
+    score.text = score.value;
+  });
   var score = add([
     text("0"),
     scale(0.4),
@@ -2980,7 +3016,6 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       value: 0
     }
   ]);
-  var TIME_LEFT = 100;
   var timer = add([
     text("0"),
     pos(30, 50),
@@ -2990,11 +3025,22 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       time: TIME_LEFT
     }
   ]);
-  scene("lose", () => {
+  scene("lose", (args) => {
     add([
-      text("Game Over"),
+      text(`Game Over
+Score: ${args.score}`),
       pos(center()),
       origin("center")
+    ]);
+  });
+  scene("win", (args) => {
+    add([
+      text(`You Win
+Enlapsed time: ${args.time.toFixed(1)}`),
+      pos(center()),
+      color(255, 255, 0),
+      origin("center"),
+      scale(0.5)
     ]);
   });
   timer.onUpdate(() => {
@@ -3005,13 +3051,13 @@ vec4 frag(vec3 pos, vec2 uv, vec4 color, sampler2D tex) {
       shake();
       go("lose", { score: score.value });
     }
+    if (score.value == TOTAL_INVADERS) {
+      go("win", { time: TIME_LEFT - timer.time });
+    }
   });
-  var INVADER_SPEED = 50;
-  var CURRENT_SPEED = INVADER_SPEED;
-  var LEVEL_DOWN = 200;
   onUpdate("space-invader", (s) => {
     s.move(CURRENT_SPEED, 0);
-    if (s.pos.y >= height() / 2) {
+    if (s.pos.y >= 12 * 22) {
       go("lose", { score: score.value });
     }
   });
